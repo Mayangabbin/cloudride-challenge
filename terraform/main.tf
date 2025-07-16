@@ -363,7 +363,7 @@ resource "aws_ecs_service" "hello_world_service" {
 resource "aws_appautoscaling_target" "ecs_service_scalable_target" {
   service_namespace  = "ecs"
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.hello_world_service.name}"
-  scalable dimension = "ecs:service:DesiredTaskCount"
+  scalable_dimension = "ecs:service:DesiredTaskCount"
   min_capacity       = 2
   max_capacity       = 5
 }
@@ -405,17 +405,16 @@ resource "aws_cloudwatch_metric_alarm" "ecs_service_error_alarm" {
     LoadBalancer = aws_lb.hello_world_alb.arn_suffix
   }
 
-  # actions_enabled = true # Enable if you configure SNS topic for notifications
-  # alarm_actions   = [aws_sns_topic.alarm_notifications.arn] # Example: Replace with your SNS topic ARN
-  # ok_actions      = [aws_sns_topic.alarm_notifications.arn] # Example: Replace with your SNS topic ARN
+  actions_enabled = true 
+  alarm_actions   = [aws_sns_topic.alarm_notifications.arn] 
+  ok_actions = [aws_sns_topic.alarm_notifications.arn]
 
   tags = {
     Name = "ecs-hello-world-error-alarm"
   }
 }
 
-/*
-# Optional: SNS Topic for notifications (uncomment and configure if you want actual notifications)
+# SNS Topic for notifications 
 resource "aws_sns_topic" "alarm_notifications" {
   name = "ecs-hello-world-alarms"
 }
@@ -423,7 +422,6 @@ resource "aws_sns_topic" "alarm_notifications" {
 resource "aws_sns_topic_subscription" "email_subscription" {
   topic_arn = aws_sns_topic.alarm_notifications.arn
   protocol  = "email"
-  endpoint  = "your-email@example.com" # Replace with your email address
-  # You will need to confirm the subscription via an email sent to this address
+  endpoint  = "mayangabbin@gmail.com"
 }
-*/
+
