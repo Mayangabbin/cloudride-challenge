@@ -165,7 +165,7 @@ resource "aws_ecs_task_definition" "hello_world_task" {
   container_definitions = jsonencode([
     {
       name        = "hello-world-container"
-      image       = "${aws_ecr_repository.hello_world_app.repository_url}:latest"
+      image       = "${aws_ecr_repository.hello_world_app.repository_url}:initial"
       cpu         = 256
       memory      = 512
       essential   = true
