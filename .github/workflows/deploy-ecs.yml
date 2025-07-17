@@ -1,77 +1,64 @@
+# .github/workflows/deploy-ecs.yml
+
 name: Deploy to ECS
 
 on:
   push:
     branches:
-      - main # This workflow will run on pushes to the 'main' branch
+      - main
     paths:
       - 'hello-world/**'
+
 env:
-  AWS_REGION: eu-west-1 # Your AWS region
-  ECR_REPOSITORY: hello-world-app # The name of your ECR repository
-  ECS_CLUSTER: ecs-hello-world-cluster # The name of your ECS cluster
-  ECS_SERVICE: hello-world-service # The name of your ECS service
-  # NEW ENV VARIABLE: The family name of your ECS Task Definition
-  ECS_TASK_DEFINITION_FAMILY: hello-world-task
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: hello-world-app
+  ECS_CLUSTER: ecs-hello-world-cluster
+  ECS_SERVICE: hello-world-service
+  ECS_TASK_DEFINITION_FAMILY: hello-world-task # Use the Family name, not the full ARN
 
 jobs:
   deploy:
     name: Deploy
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+    runs-on: ubuntu-latest
 
     permissions:
-      id-token: write # This is required for OIDC authentication
-      contents: read  # This is required to checkout the code
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # Action to checkout your GitHub repository code
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4 # Action to configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-deploy-role # The ARN of the IAM role you created
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-deploy-role
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2 # Action to log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }} # Use the commit SHA as the image tag
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./hello-world # Make sure to specify the context here
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      # --- NEW / MODIFIED STEPS FOR TASK DEFINITION MANAGEMENT ---
-      - name: Download existing Task Definition and update image
-        id: describe-and-render-task-definition
-        run: |
-          # Fetch the current active Task Definition (latest revision) from ECS
-          # This assumes your Terraform creates a Task Definition with the family name 'hello-world-task'
-          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION_FAMILY }} \
-            --query taskDefinition > task-definition.json
-
-          # Update the image in the downloaded Task Definition JSON
-          # This replaces the image URI for your specific container within the JSON
-          # Ensure 'hello-world-container' matches the name in your actual task definition in Terraform
-          jq '.containerDefinitions[0].image = "${{ steps.build-image.outputs.image }}"' task-definition.json > new-task-definition.json
-
-          # Output the path to the updated task definition for the next step
-          echo "task-definition-path=new-task-definition.json" >> $GITHUB_OUTPUT # Correct way to set output in GitHub Actions
-
-      - name: Register new Task Definition revision
-        id: register-task-definition
-        uses: aws-actions/amazon-ecs-register-task-definition@v1 # New action for registering a new revision
+      # --- This step will now handle both rendering and registering ---
+      - name: Render and Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1 # <--- Using this action
         with:
-          task-definition: ${{ steps.describe-and-render-task-definition.outputs.task-definition-path }}
-
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.register-task-definition.outputs.task-definition-arn }} 
+          task-definition: | # <--- Pass the task definition JSON directly or via file
+            # Fetch the current active Task Definition (latest revision) from ECS
+            # and update the image dynamically using 'jq'.
+            # Ensure 'hello-world-container' matches the name in your actual task definition in Terraform
+            $(aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION_FAMILY }} \
+              --query taskDefinition --output json | \
+              jq '.containerDefinitions[0].image = "${{ steps.build-image.outputs.image }}"')
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
+          # Optional: You can specify a wait-for-service-stability parameter here if needed, default is true
