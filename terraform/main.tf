@@ -466,6 +466,22 @@ resource "aws_vpc_endpoint" "s3" {
   }
 }
 
+# VPC Endpoint for CloudWatch Logs
+resource "aws_vpc_endpoint" "logs" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.eu-west-1.logs" # השם הספציפי לשירות CloudWatch Logs
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true # חשוב מאוד לניתוב DNS פרטי
+  # השתמש ב-Security Group הייעודי שיצרת עבור נקודות הקצה שלך
+  security_group_ids  = [aws_security_group.vpce_sg.id]
+  # פרוס את ה-ENI בסאבנטים הפרטיים שבהם רצות המשימות
+  subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+
+  tags = {
+    Name = "ecs-hello-world-logs-vpce"
+  }
+}
+
 # ----------------------------------
 # Monitoring and Alarms (CloudWatch)
 # ----------------------------------
