@@ -3,6 +3,10 @@ provider "aws" {
   region = "eu-west-1"
 }
 
+# ----------------
+# Create VPC, IGW
+# ---------------
+
 # Create a new VPC
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
@@ -23,13 +27,16 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
+# ----------------------------
+# Create subnets, route tables
+# ----------------------------
+
 # Define Availability Zones for our subnets
 data "aws_availability_zones" "available" {
   state = "available"
 }
 
 # Public Subnets
-
 resource "aws_subnet" "public_1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
@@ -79,7 +86,6 @@ resource "aws_route_table_association" "public_2_association" {
 }
 
 # Private Subnets
-
 resource "aws_subnet" "private_1" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.10.0/24"
@@ -280,8 +286,8 @@ resource "aws_lb_listener" "hello_world_listener" {
 # ECS Task Definition
 resource "aws_ecs_task_definition" "hello_world_task" {
   family                   = "hello-world-task"
-  cpu                      = "256" # 0.25 vCPU
-  memory                   = "512" # 0.5 GB
+  cpu                      = "256" 
+  memory                   = "512" 
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
@@ -304,7 +310,7 @@ resource "aws_ecs_task_definition" "hello_world_task" {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = "/ecs/hello-world-task"
-          "awslogs-region"        = "eu-west-1" # Ensure this matches your provider region
+          "awslogs-region"        = "eu-west-1" 
           "awslogs-stream-prefix" = "ecs"
         }
       }
@@ -363,7 +369,7 @@ resource "aws_ecs_service" "hello_world_service" {
 resource "aws_appautoscaling_target" "ecs_service_scalable_target" {
   service_namespace  = "ecs"
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.hello_world_service.name}"
-  scalable_dimension = "ecs:service:DesiredTaskCount"
+  scalable_dimension = "ecs:service:DesiredCount"
   min_capacity       = 2
   max_capacity       = 5
 }
@@ -385,9 +391,84 @@ resource "aws_appautoscaling_policy" "ecs_service_cpu_scaling_policy" {
   }
 }
 
+
 # ------------------------------------------------
+# NEW: Security Group for VPC Endpoints
+# ------------------------------------------------
+resource "aws_security_group" "vpce_sg" {
+  vpc_id      = aws_vpc.main.id
+  name        = "ecs-hello-world-vpce-sg"
+  description = "Security group for ECR VPC Endpoints"
+
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_tasks_sg.id] # Allow inbound from ECS Tasks SG
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ecs-hello-world-vpce-sg"
+  }
+}
+
+# ------------------------------------------------
+# NEW: VPC Endpoints (ECR API, ECR DKR, S3)
+# ------------------------------------------------
+
+# VPC Endpoint for ECR API
+resource "aws_vpc_endpoint" "ecr_api" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.eu-west-1.ecr.api"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+  security_group_ids  = [aws_security_group.vpce_sg.id] # Use the new VPCE SG
+  subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+
+  tags = {
+    Name = "ecs-hello-world-ecr-api-vpce"
+  }
+}
+
+# VPC Endpoint for ECR DKR (Docker Registry)
+resource "aws_vpc_endpoint" "ecr_dkr" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.eu-west-1.ecr.dkr"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+  security_group_ids  = [aws_security_group.vpce_sg.id] # Use the new VPCE SG
+  subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
+
+  tags = {
+    Name = "ecs-hello-world-ecr-dkr-vpce"
+  }
+}
+
+# VPC Endpoint for S3 (Gateway Endpoint)
+# This routes S3 traffic through the endpoint using the private route table
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id        = aws_vpc.main.id
+  service_name  = "com.amazonaws.eu-west-1.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids = [
+    aws_route_table.private.id
+  ]
+
+  tags = {
+    Name = "ecs-hello-world-s3-vpce"
+  }
+}
+
+# ----------------------------------
 # Monitoring and Alarms (CloudWatch)
-# ------------------------------------------------
+# ----------------------------------
 
 resource "aws_cloudwatch_metric_alarm" "ecs_service_error_alarm" {
   alarm_name          = "ecs-hello-world-error-alarm"
