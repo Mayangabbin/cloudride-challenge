@@ -12,6 +12,7 @@ env:
   ECS_TASK_DEFINITION_FAMILY: hello-world-task
   
 jobs:
+
   # Job 1: Sets a variable and outputs it
   set-my-variable-job:
     runs-on: ubuntu-latest
@@ -19,6 +20,10 @@ jobs:
       my_variable: ${{ steps.set_output_step.outputs.my_value }}
 
     steps:
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        
       - name: Set a custom variable
         id: set_output_step
         env:
