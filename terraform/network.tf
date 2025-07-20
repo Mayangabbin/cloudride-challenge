@@ -1,8 +1,4 @@
-# ----------------
-# Create VPC, IGW
-# ---------------
-
-# Create a new VPC
+# Create a VPC
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -21,10 +17,6 @@ resource "aws_internet_gateway" "main" {
     Name = "ecs-hello-world-igw"
   }
 }
-
-# ----------------------------
-# Create subnets, route tables
-# ----------------------------
 
 # Define Availability Zones for our subnets
 data "aws_availability_zones" "available" {
@@ -101,7 +93,7 @@ resource "aws_subnet" "private_2" {
   }
 }
 
-# Route Table for Private Subnets (no internet access directly)
+# Route Table for Private Subnets
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
