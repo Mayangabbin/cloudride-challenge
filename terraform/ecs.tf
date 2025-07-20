@@ -192,28 +192,18 @@ resource "aws_ecs_task_definition" "hello_world_task" {
   }
 }
 
-# CloudWatch Log Group for ECS Task Logs
-resource "aws_cloudwatch_log_group" "ecs_task_log_group" {
-  name              = "/ecs/hello-world-task"
-  retention_in_days = 7 # Adjust as needed
-
-  tags = {
-    Name = "ecs-hello-world-log-group"
-  }
-}
-
 # ECS Service
 resource "aws_ecs_service" "hello_world_service" {
   name            = "hello-world-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.hello_world_task.arn
-  desired_count   = 2 # At least 2 running tasks
+  desired_count   = 2 
   launch_type     = "FARGATE"
 
   network_configuration {
     subnets         = [aws_subnet.private_1.id, aws_subnet.private_2.id] # Tasks on private subnets
     security_groups = [aws_security_group.ecs_tasks_sg.id]
-    assign_public_ip = false # Tasks do not need public IPs
+    assign_public_ip = false 
   }
 
   load_balancer {
@@ -232,9 +222,7 @@ resource "aws_ecs_service" "hello_world_service" {
   }
 }
 
-# ------------------------------------------------
 # Auto Scaling for ECS Service
-# ------------------------------------------------
 
 resource "aws_appautoscaling_target" "ecs_service_scalable_target" {
   service_namespace  = "ecs"
