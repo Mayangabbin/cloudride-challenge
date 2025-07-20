@@ -49,7 +49,7 @@ resource "aws_iam_role_policy_attachment" "github_actions_ecr_poweruser_policy" 
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
 }
 
-# Allows full access to ECS (for updating services, task definitions, etc.)
+# Allows full access to ECS
 resource "aws_iam_role_policy_attachment" "github_actions_ecs_fullaccess_policy" {
   role       = aws_iam_role.github_actions_ecs_deploy_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
