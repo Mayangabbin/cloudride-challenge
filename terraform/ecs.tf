@@ -60,7 +60,7 @@ resource "aws_security_group" "alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Allow HTTP from anywhere
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   egress {
@@ -108,7 +108,7 @@ resource "aws_lb" "hello_world_alb" {
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id] 
 
-  enable_deletion_protection = false # when we go prod we'll change this
+  enable_deletion_protection = false 
 
   tags = {
     Name = "ecs-hello-world-alb"
@@ -121,7 +121,7 @@ resource "aws_lb_target_group" "hello_world_tg" {
   port        = 80
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
-  target_type = "ip" # ECS Fargate uses IP targets
+  target_type = "ip" 
 
   health_check {
     path = "/"
@@ -138,7 +138,7 @@ resource "aws_lb_target_group" "hello_world_tg" {
   }
 }
 
-# ALB Listener (HTTP on port 80)
+# ALB Listener
 resource "aws_lb_listener" "hello_world_listener" {
   load_balancer_arn = aws_lb.hello_world_alb.arn
   port              = 80
