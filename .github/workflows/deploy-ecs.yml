@@ -72,7 +72,11 @@ jobs:
           
       - name: Describe and Render Task Definition
         id: render-task-definition
+        env:
+          BUILT_IMAGE_URI: ${{ needs.build-and-push-image.outputs.image }} # <--- CORRECT WAY TO PASS
         run: |
+          echo "Built Image URI: $BUILT_IMAGE_URI" # Now this will correctly print the URI
+        
           # Fetch the current active Task Definition (latest revision) from ECS
           TASK_DEF_JSON=$(aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION_FAMILY }} \
             --query taskDefinition --output json)
@@ -80,10 +84,6 @@ jobs:
           echo "--- Original Task Definition JSON from ECS ---"
           echo "$TASK_DEF_JSON"
           echo "----------------------------------------------"
-
-          # Get the image URI from the build step's output
-          BUILT_IMAGE_URI="${{ needs.build-and-push-image.outputs.image }}"
-          echo "Built Image URI: ${{ needs.build-and-push-image.outputs.image }}"
           
           # Update the image in the downloaded Task Definition JSON
           # Ensure 'hello-world-container' matches the name in your actual task definition in Terraform
