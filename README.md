@@ -5,6 +5,7 @@
 This repository contains a sample web application ("Hello World") deployed to AWS ECS using **Terraform** and an automated CI/CD pipeline with **GitHub Actions**.
 
 ## Repository Structure
+```bash
 ├── .github/                
 │   └── workflows/
 │       └── deploy-ecs.yml   # CI/CD pipeline for building, pushing, and deploying to ECS
@@ -19,7 +20,7 @@ This repository contains a sample web application ("Hello World") deployed to AW
 │   ├── index.html           # Simple "Hello World" web page
 │   └── Dockerfile           # Dockerfile for building the application image
 └── README.md                # This README file
-
+```
 
 ## Core Components & Architecture
 
