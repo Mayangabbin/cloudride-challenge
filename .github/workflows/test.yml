@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       my_variable: ${{ steps.set_output_step.outputs.my_value }}
+    permissions:
+      contents: read
+      id-token: write # Required  
 
     steps:
       - name: Configure AWS credentials
