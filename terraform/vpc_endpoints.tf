@@ -1,6 +1,5 @@
-# ------------------------------------------------
-# NEW: Security Group for VPC Endpoints
-# ------------------------------------------------
+# Security Group for VPC Endpoints
+
 resource "aws_security_group" "vpce_sg" {
   vpc_id      = aws_vpc.main.id
   name        = "ecs-hello-world-vpce-sg"
@@ -10,7 +9,7 @@ resource "aws_security_group" "vpce_sg" {
     from_port       = 443
     to_port         = 443
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks_sg.id] # Allow inbound from ECS Tasks SG
+    security_groups = [aws_security_group.ecs_tasks_sg.id] 
   }
 
   egress {
@@ -25,17 +24,13 @@ resource "aws_security_group" "vpce_sg" {
   }
 }
 
-# ------------------------------------------------
-# NEW: VPC Endpoints (ECR API, ECR DKR, S3)
-# ------------------------------------------------
-
 # VPC Endpoint for ECR API
 resource "aws_vpc_endpoint" "ecr_api" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.eu-west-1.ecr.api"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpce_sg.id] # Use the new VPCE SG
+  security_group_ids  = [aws_security_group.vpce_sg.id]
   subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
   tags = {
@@ -43,13 +38,13 @@ resource "aws_vpc_endpoint" "ecr_api" {
   }
 }
 
-# VPC Endpoint for ECR DKR (Docker Registry)
+# VPC Endpoint for ECR DKR 
 resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.eu-west-1.ecr.dkr"
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
-  security_group_ids  = [aws_security_group.vpce_sg.id] # Use the new VPCE SG
+  security_group_ids  = [aws_security_group.vpce_sg.id] 
   subnet_ids          = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
   tags = {
@@ -57,8 +52,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   }
 }
 
-# VPC Endpoint for S3 (Gateway Endpoint)
-# This routes S3 traffic through the endpoint using the private route table
+# VPC Endpoint for S3 
 resource "aws_vpc_endpoint" "s3" {
   vpc_id        = aws_vpc.main.id
   service_name  = "com.amazonaws.eu-west-1.s3"
