@@ -83,7 +83,7 @@ jobs:
           echo "----------------------------------------------"
 
           # Get the image URI from the build step's output
-          BUILT_IMAGE_URI="${{ steps.build-image.outputs.image_uri }}"
+          BUILT_IMAGE_URI="${{ needs.build-and-push-image.outputs.image_uri }}"
           echo "Built Image URI: $BUILT_IMAGE_URI"
 
           # Update the image in the downloaded Task Definition JSON
