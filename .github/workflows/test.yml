@@ -1,0 +1,30 @@
+name: Simple Variable Passing Workflow
+
+on:
+  push:
+    branches:
+      - main # יופעל בכל פעם שיש Push לענף main
+
+jobs:
+  # Job 1: Sets a variable and outputs it
+  set-my-variable-job:
+    runs-on: ubuntu-latest
+    outputs:
+      my_variable: ${{ steps.set_output_step.outputs.my_value }}
+
+    steps:
+      - name: Set a custom variable
+        id: set_output_step
+        run: |
+          echo "my_value=hello-from-job1" >> $GITHUB_OUTPUT
+          echo "DEBUG: 'my_value' set to: hello-from-job1"
+
+  # Job 2: Uses the variable from Job 1 and prints it
+  use-my-variable-job:
+    runs-on: ubuntu-latest
+    needs: set-my-variable-job 
+    steps:
+      - name: Print the variable from Job 1
+        run: |
+          RECEIVED_VARIABLE="${{ needs.set-my-variable-job.outputs.my_variable }}"
+          echo "The variable received from Job 1 is: $RECEIVED_VARIABLE"
