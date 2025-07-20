@@ -37,7 +37,7 @@ This repository contains a sample web application ("Hello World") deployed to AW
     * **Public Route Table Associations:** Associates the public subnets with the public route table
     * **Private Route Table Associations:** Aassociates the private subnets with the private route table
       
-### ECS Fargate
+### ECS Services & Components
 **(Defined in `terraform/ecs.tf`)**
 * **Elastic Container Registry (ECR) Repository:** A repository (hello-world-app) for storing our Docker image.
 * **Elastic Container Service (ECS) Cluster:** A logical grouping of tasks or services.
@@ -69,13 +69,8 @@ This repository contains a sample web application ("Hello World") deployed to AW
 
 ### Access Management for Github Actions
 **(Defined in `terraform/github_iam.tf`)**
-* **GitHub Actions OIDC Provider Thumbprint:** dynamically fetches the current thumbprint from GitHub's OIDC provider URL.
+* **GitHub Actions OIDC Provider Thumbprint:** Dynamically fetches the current thumbprint from GitHub's OIDC provider URL.
 * **IAM OIDC Identity Provider:** Establishes a trust relationship between our AWS account and GitHub's OIDC provider.
-* **GitHub Actions ECS Deploy Role:** An IAM role granting the necessary permissions:
-    * `sts:AssumeRoleWithWebIdentity` through the OIDC provider (with conditions restricting access to pushes on the `main` branch of this specific repository).
-    * `AmazonEC2ContainerRegistryPowerUser` policy: Allows building, tagging, and pushing images to ECR.
-    * `AmazonECS_FullAccess` policy: Grants permissions to register new Task Definitions and update ECS Services.
-* **ECS Task Execution Role (`ecs-task-execution-role-hello-world`):** An IAM role assumed by the ECS tasks, allowing them to:
-    * Pull Docker images from ECR.
-    * Push container logs to CloudWatch Logs.
-
+* **IAM Role for GitHub Actions Deployment:** IAM role for GitHub Actions to assume.
+* **IAM Role Policy Attachment for ECR:** Povides comprehensive permissions for ECR, allowing the workflow to authenticate with ECR, push Docker images, and pull existing images.
+* **IAM Role Policy Attachment for ECS:** Grants broad permissions for managing ECS resources. 
