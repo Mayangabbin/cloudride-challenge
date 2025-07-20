@@ -1,15 +1,24 @@
 
-# Monitoring and Alarms (CloudWatch)
+# CloudWatch Log Group for ECS Task Logs
+resource "aws_cloudwatch_log_group" "ecs_task_log_group" {
+  name              = "/ecs/hello-world-task"
+  retention_in_days = 7 
 
+  tags = {
+    Name = "ecs-hello-world-log-group"
+  }
+}
+
+# CloudWatch Metric Alarm
 resource "aws_cloudwatch_metric_alarm" "ecs_service_error_alarm" {
   alarm_name          = "ecs-hello-world-error-alarm"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
-  metric_name         = "UnhealthyHostCount" # Common metric for ALB target group health
+  metric_name         = "UnhealthyHostCount" 
   namespace           = "AWS/ApplicationELB"
   period              = 60
   statistic           = "Average"
-  threshold           = 0 # Trigger if there's any unhealthy host (task)
+  threshold           = 0 # Trigger if there's any unhealthy tasks
   alarm_description   = "Alarm for unhealthy ECS tasks in hello-world service."
   
   dimensions = {
