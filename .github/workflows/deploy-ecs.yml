@@ -19,7 +19,6 @@ env:
 
 jobs:
   build-and-push-image:
-    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -54,7 +53,6 @@ jobs:
       image: ${{ steps.build-image.outputs.image }}
       
   deploy-ecs-service:
-    name: Deploy ECS Service
     runs-on: ubuntu-latest
     needs: build-and-push-image # This job depends on the successful completion of the 'build-and-push-image' job
     permissions:
