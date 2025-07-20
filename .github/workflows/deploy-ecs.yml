@@ -47,10 +47,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./hello-world
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          # Ensure the image output is set correctly for the next step
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT # Set the output for the built image
-          echo "Image set as: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"   
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG 
       
   deploy-ecs-service:
     runs-on: ubuntu-latest
@@ -68,11 +65,27 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-deploy-role
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR Repository URI
+        id: get-ecr-uri
+        run: |
+          # Use AWS CLI to get the full repository URI directly in this job
+          # This command outputs the full URI (e.g., 123456789012.dkr.ecr.eu-west-1.amazonaws.com/hello-world-app)
+          ECR_FULL_URI=$(aws ecr describe-repositories \
+            --repository-names ${{ env.ECR_REPOSITORY }} \
+            --query 'repositories[0].repositoryUri' \
+            --output text)
+          
+          echo "DEBUG: ECR_FULL_URI retrieved in deploy job: $ECR_FULL_URI"
+          
+          # Output the full URI for use in the next step
+          echo "ecr_full_uri=$ECR_FULL_URI" >> $GITHUB_OUTPUT
+
           
       - name: Describe and Render Task Definition
         id: render-task-definition
         env:
-          BUILT_IMAGE_URI: ${{ needs.build-and-push-image.outputs.image }} # <--- CORRECT WAY TO PASS
+          BUILT_IMAGE_URI: ${{ steps.get-ecr-uri.outputs.ecr_full_uri }}:${{ github.sha }} # <--- CORRECT WAY TO PASS
         run: |
           echo "Built Image URI: $BUILT_IMAGE_URI" # Now this will correctly print the URI
         
