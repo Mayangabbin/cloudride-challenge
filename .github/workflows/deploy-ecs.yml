@@ -48,10 +48,10 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./hello-world
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           # Ensure the image output is set correctly for the next step
-          echo "image_uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT # Set the output for the built image
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT # Set the output for the built image
     outputs:
       # This explicitly declares the outputs of the job, making them available to jobs that "need" this one
-      image_uri: ${{ steps.build-image.outputs.image_uri }}
+      image: ${{ steps.build-image.outputs.image }}
       
   deploy-ecs-service:
     name: Deploy ECS Service
@@ -83,9 +83,9 @@ jobs:
           echo "----------------------------------------------"
 
           # Get the image URI from the build step's output
-          BUILT_IMAGE_URI="${{ needs.build-and-push-image.outputs.image_uri }}"
+          BUILT_IMAGE_URI="${{ needs.build-and-push-image.outputs.image }}"
           echo "Built Image URI: $BUILT_IMAGE_URI"
-
+          
           # Update the image in the downloaded Task Definition JSON
           # Ensure 'hello-world-container' matches the name in your actual task definition in Terraform
           # This command selects the specific container by name and updates its image field.
