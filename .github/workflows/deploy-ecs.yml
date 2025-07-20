@@ -20,6 +20,8 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}   
     permissions:
       contents: read
       id-token: write # Required for OIDC authentication with AWS
@@ -49,9 +51,6 @@ jobs:
           # Ensure the image output is set correctly for the next step
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT # Set the output for the built image
           echo "Image set as: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"   
-    outputs:
-      # This explicitly declares the outputs of the job, making them available to jobs that "need" this one
-      image: ${{ steps.build-image.outputs.image }}
       
   deploy-ecs-service:
     runs-on: ubuntu-latest
