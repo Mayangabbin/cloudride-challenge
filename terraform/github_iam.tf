@@ -30,7 +30,7 @@ resource "aws_iam_role" "github_actions_ecs_deploy_role" {
         Action = "sts:AssumeRoleWithWebIdentity",
         Condition = {
           StringEquals = {
-            "token.actions.githubusercontent.com:sub" : "repo:mayangabbin/cloudride-challenge:ref:refs/heads/main",
+            "token.actions.githubusercontent.com:sub" : "repo:Mayangabbin/cloudride-challenge:ref:refs/heads/main",
             "token.actions.githubusercontent.com:aud" : "sts.amazonaws.com"
           }
         }
