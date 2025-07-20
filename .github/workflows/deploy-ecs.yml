@@ -48,6 +48,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           # Ensure the image output is set correctly for the next step
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT # Set the output for the built image
+          echo "Image set as: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"   
     outputs:
       # This explicitly declares the outputs of the job, making them available to jobs that "need" this one
       image: ${{ steps.build-image.outputs.image }}
