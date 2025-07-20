@@ -1,7 +1,5 @@
 
-# ----------------------------------
 # Monitoring and Alarms (CloudWatch)
-# ----------------------------------
 
 resource "aws_cloudwatch_metric_alarm" "ecs_service_error_alarm" {
   alarm_name          = "ecs-hello-world-error-alarm"
