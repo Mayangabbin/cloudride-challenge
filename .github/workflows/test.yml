@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - main 
-
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: hello-world-app
+  ECS_CLUSTER: ecs-hello-world-cluster
+  ECS_SERVICE: hello-world-service
+  ECS_TASK_DEFINITION_FAMILY: hello-world-task
+  
 jobs:
   # Job 1: Sets a variable and outputs it
   set-my-variable-job:
