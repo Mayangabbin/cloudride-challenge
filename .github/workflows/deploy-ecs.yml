@@ -1,29 +1,29 @@
 # .github/workflows/deploy-ecs.yml
 
-name: Deploy to ECS
+name: Deploy ECS Fargate Application
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'hello-world/**'
+      - 'hello-world/**' # Trigger only if changes are in the application directory
 
 env:
   AWS_REGION: eu-west-1
   ECR_REPOSITORY: hello-world-app
-  ECS_CLUSTER: ecs-hello-world-cluster
-  ECS_SERVICE: hello-world-service
+  ECS_CLUSTER_NAME: ecs-hello-world-cluster # Renamed for clarity, matches prior discussion
+  ECS_SERVICE_NAME: hello-world-service   # Renamed for clarity, matches prior discussion
   ECS_TASK_DEFINITION_FAMILY: hello-world-task
+  CONTAINER_NAME: hello-world-container # Name of the container within your Task Definition
 
 jobs:
-  deploy:
-    name: Deploy
+  build-and-push-image:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
-
     permissions:
-      id-token: write
       contents: read
+      id-token: write # Required for OIDC authentication with AWS
 
     steps:
       - name: Checkout code
@@ -40,61 +40,95 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, tag, and push image to Amazon ECR
-        id: build-image
+        id: build-image # This step's ID is used to get its outputs
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }} # Use Git SHA as image tag for unique versions
         run: |
+          echo "Building Docker image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./hello-world
+          echo "Pushing Docker image to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          # Ensure the image output is set correctly for the next step
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT # Set the output for the built image
+          
+          # Set the full image URI as an output for this step, which will be accessible by other jobs
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Image successfully built and pushed to: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      # --- MODIFIED STEP: Added debug output ---
-      - name: Describe and Render Task Definition
-        id: render-task-definition
+    outputs:
+      # This explicitly declares the outputs of the job, making them available to jobs that "need" this one
+      image_uri: ${{ steps.build-image.outputs.IMAGE_URI }}
+
+  deploy-ecs-service:
+    name: Deploy ECS Service
+    runs-on: ubuntu-latest
+    needs: build-and-push-image # This job depends on the successful completion of the 'build-and-push-image' job
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC authentication with AWS
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Describe, Render, and Clean Task Definition for Deployment
+        id: render-task-definition # ID for this step to reference its outputs
         run: |
           # Fetch the current active Task Definition (latest revision) from ECS
-          TASK_DEF_JSON=$(aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION_FAMILY }} \
-            --query taskDefinition --output json)
+          echo "Fetching current task definition for family: ${{ env.ECS_TASK_DEFINITION_FAMILY }}"
+          TASK_DEF_JSON=$(aws ecs describe-task-definition \
+            --task-definition ${{ env.ECS_TASK_DEFINITION_FAMILY }} \
+            --query taskDefinition \
+            --output json)
           
           echo "--- Original Task Definition JSON from ECS ---"
-          echo "$TASK_DEF_JSON"
+          echo "$TASK_DEF_JSON" | jq . # Use jq for pretty printing
           echo "----------------------------------------------"
 
-          # Get the image URI from the build step's output
-          BUILT_IMAGE_URI="${{ steps.build-image.outputs.image }}"
-          echo "Built Image URI: $BUILT_IMAGE_URI"
+          # Get the image URI from the previous job's output (passed via 'needs')
+          # Correctly reference the output from the 'build-and-push-image' job
+          BUILT_IMAGE_URI="${{ needs.build-and-push-image.outputs.image_uri }}"
+          echo "Built Image URI from previous job: $BUILT_IMAGE_URI"
 
           # Update the image in the downloaded Task Definition JSON
-          # Ensure 'hello-world-container' matches the name in your actual task definition in Terraform
-          # This command selects the specific container by name and updates its image field.
+          # This command specifically targets the container by name and updates its image field.
+          echo "Updating image for container '${{ env.CONTAINER_NAME }}'..."
           UPDATED_TASK_DEF_JSON=$(echo "$TASK_DEF_JSON" | \
             jq --arg img "$BUILT_IMAGE_URI" \
-            '.containerDefinitions |= map(if .name == "hello-world-container" then .image = $img else . end)')
+            '.containerDefinitions |= map(if .name == "${{ env.CONTAINER_NAME }}" then .image = $img else . end)')
 
-          echo "--- Updated Task Definition JSON (before cleaning) ---"
-          echo "$UPDATED_TASK_DEF_JSON"
+          echo "--- Updated Task Definition JSON (before cleaning AWS metadata) ---"
+          echo "$UPDATED_TASK_DEF_JSON" | jq .
           echo "----------------------------------------------------"
 
-          # Remove unwanted fields that can cause conflicts when registering a new definition
-          # These fields are typically generated by AWS and should not be passed back
+          # Remove unwanted AWS-generated fields that can cause conflicts when registering a new definition
+          echo "Cleaning AWS-generated metadata from Task Definition JSON..."
           CLEANED_TASK_DEF_JSON=$(echo "$UPDATED_TASK_DEF_JSON" | \
-            jq 'del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy)') # Added more 'del' for robustness
+            jq 'del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.compatibilities) | del(.registeredAt) | del(.registeredBy) | del(.requiresAttributes)')
 
           echo "--- Cleaned Task Definition JSON (ready for registration) ---"
-          echo "$CLEANED_TASK_DEF_JSON"
+          echo "$CLEANED_TASK_DEF_JSON" | jq .
           echo "----------------------------------------------------"
 
-          # Save the cleaned and updated JSON to a file
+          # Save the cleaned and updated JSON to a file that the next action can read
           echo "$CLEANED_TASK_DEF_JSON" > new-task-definition.json
           
-          # Output the path to the updated task definition for the next step
+          # Output the path to the updated task definition file for the next step
           echo "task-definition-path=new-task-definition.json" >> $GITHUB_OUTPUT
+          echo "Task definition prepared at new-task-definition.json"
 
-      - name: Deploy Amazon ECS task definition
+      - name: Deploy Amazon ECS Task Definition to Service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.render-task-definition.outputs.task-definition-path }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE_NAME }} # Use the correctly named env variable
+          cluster: ${{ env.ECS_CLUSTER_NAME }} # Use the correctly named env variable
+          wait-for-service-stability: true # Wait for the service to become stable after deployment
+          # Ensure no CodeDeploy AppSpec is used, as we're directly updating ECS Service
+          codedeploy-appspec: ''
+          codedeploy-deployment-group: ''  
