@@ -20,8 +20,6 @@ env:
 jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build-image.outputs.image }}   
     permissions:
       contents: read
       id-token: write # Required for OIDC authentication with AWS
